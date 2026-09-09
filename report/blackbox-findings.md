@@ -14,6 +14,8 @@
 | 1 | Privilege Escalation via Mass Assignment | Broken Access Control | High |
 | 2 | Stale Session Authorization | Broken Access Control | Low–Medium |
 | 3 | Insecure Direct Object Reference (IDOR) on notes | Broken Access Control | High |
+| 4 | SQL Injection in search | Injection | High |
+| 5 | Stored Cross-Site Scripting (XSS) in note content | Injection | High |
 
 Root cause analysis (exact vulnerable code/lines) is deferred to the white-box phase of this assessment. This document covers black-box discovery and proof-of-concept only.
 
@@ -122,10 +124,64 @@ Complete breakdown of the private/public note distinction. Any authenticated use
 
 ---
 
+## Finding 4: SQL Injection in Search
+
+**Severity:** High
+
+**Description**
+The `/search` endpoint accepts a `q` query parameter and uses it to filter notes by title/content. User input is concatenated directly into the underlying SQL query rather than passed as a parameterized value, allowing an attacker to alter the query's logic and retrieve data that should not match the search term — including notes not owned by the requesting user.
+
+**Discovery process**
+An initial payload of a single quote (`q=x'`) produced a database error (`sqlite3.OperationalError: unrecognized token`), indicating that input was being inserted directly into SQL syntax rather than being treated as an inert string. The error message revealed that the application wraps the search term in a `LIKE '%...%'` pattern before executing the query, which informed the construction of a working payload: injected conditions using `=` were silently defeated by the trailing `%` (since `%` is a literal character in `=` comparisons, not a wildcard), but a condition using `LIKE` succeeded, since `%` is a wildcard in that context.
+
+**Proof of Concept**
+
+```
+curl -b alice_cookies.txt -G http://127.0.0.1:5000/search \
+  --data-urlencode "q=x' OR '1' LIKE '1"
+```
+
+Result: every note in the database was returned — including notes owned by other users and notes that share no relationship to the search term "x" — confirming the injected `OR` condition overrode the intended filter entirely.
+
+**Impact**
+An attacker can retrieve the full contents of the notes table regardless of ownership or public/private status, bypassing both the search filter and the access-control logic that is supposed to separate "my notes" from "public notes." This is a more serious framing than "broken search" — it is effectively another route to the same data exposure demonstrated in Finding 3 (IDOR), achieved through a completely different mechanism. Depending on the underlying query construction, similar injection could plausibly be extended to modify or delete data as well, though this was not tested here.
+
+---
+
+## Finding 5: Stored Cross-Site Scripting (XSS) in Note Content
+
+**Severity:** High
+
+**Description**
+Note content is rendered back to users without sanitization or output encoding. Submitting HTML/JavaScript as note content causes that markup to be stored as-is and later rendered verbatim in the page shown to any user who views the note — including other users, since the note can be marked public.
+
+**Proof of Concept**
+
+```
+curl -b alice_cookies.txt -X POST http://127.0.0.1:5000/notes/new \
+  --data-urlencode "title=XSS Test" \
+  --data-urlencode "content=<script>alert(1)</script>" \
+  -d "is_public=on"
+```
+
+Fetching the dashboard afterward returned the payload unescaped in the raw HTML:
+
+```html
+<p><script>alert(1)</script></p>
+```
+
+Confirmed in a real browser: viewing the dashboard executed the script and produced a genuine JavaScript alert popup.
+
+**Impact**
+This is a **stored** (not reflected) XSS vulnerability: the payload persists in the database and executes for every user who subsequently views the page containing it, not just the original submitter. Since the note was marked public, this would trigger for any authenticated user — including administrators — who visits the dashboard. A real attacker could replace the proof-of-concept `alert(1)` with a payload that exfiltrates session cookies or performs actions on behalf of the victim (e.g. silently promoting the attacker's account to admin, using the same mechanism as Finding 1), making this a plausible path to full account or admin takeover rather than a cosmetic issue.
+
+---
+
 ## Next Steps
 
-- [ ] Confirm delete via the same IDOR path (view/edit already confirmed)
-- [ ] Injection testing (SQLi in search, XSS in note content) — not yet started
+- [x] Confirm delete via the same IDOR path (view/edit already confirmed)
+- [x] SQL Injection in search
+- [x] Stored XSS in note content
 - [ ] SSRF testing (link preview feature) — not yet started
 - [ ] Authentication testing (login rate limiting / brute-force resistance) — not yet started
 - [ ] White-box review to identify exact root cause (file/line) for each confirmed finding
