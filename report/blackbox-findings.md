@@ -16,6 +16,8 @@
 | 3 | Insecure Direct Object Reference (IDOR) on notes | Broken Access Control | High |
 | 4 | SQL Injection in search | Injection | High |
 | 5 | Stored Cross-Site Scripting (XSS) in note content | Injection | High |
+| 6 | Server-Side Request Forgery (SSRF) via link preview | SSRF | Medium–High |
+| 7 | Broken Authentication — no login rate limiting | Broken Authentication | Medium |
 
 Root cause analysis (exact vulnerable code/lines) is deferred to the white-box phase of this assessment. This document covers black-box discovery and proof-of-concept only.
 
@@ -177,12 +179,79 @@ This is a **stored** (not reflected) XSS vulnerability: the payload persists in 
 
 ---
 
+## Finding 6: Server-Side Request Forgery (SSRF) via Link Preview
+
+**Severity:** Medium–High
+
+**Description**
+The `/notes/preview` endpoint accepts a `url` parameter and performs a server-side HTTP request to fetch that URL, returning a snippet of the response. The endpoint performs no validation on the destination host or scheme, and is not bound to any specific note or ownership context — it can be called directly by any authenticated user regardless of whether they are actually composing a note.
+
+**Proof of Concept**
+
+```
+# Baseline - normal external URL
+curl -b alice_cookies.txt -X POST http://127.0.0.1:5000/notes/preview \
+  --data-urlencode "url=https://example.com"
+# -> 200, returns page content as expected
+
+# Server fetches its own internal admin route
+curl -b alice_cookies.txt -X POST http://127.0.0.1:5000/notes/preview \
+  --data-urlencode "url=http://127.0.0.1:5000/admin"
+# -> 200, server successfully issued the internal request
+# (returned the login page with "Admin access required", since the
+#  server-side fetch carries no session/cookie of the calling user)
+
+# localhost alias, same result
+curl -b alice_cookies.txt -X POST http://127.0.0.1:5000/notes/preview \
+  --data-urlencode "url=http://localhost:5000/"
+# -> 200, internal request succeeded
+
+# Non-http scheme
+curl -b alice_cookies.txt -X POST http://127.0.0.1:5000/notes/preview \
+  --data-urlencode "url=file:///etc/passwd"
+# -> Error: "No connection adapters were found for 'file:///etc/passwd'"
+# (rejected by the underlying HTTP library's scheme handling, not by
+#  any validation in the application itself)
+```
+
+**Impact**
+The server can be induced to make arbitrary outbound requests to internal addresses on behalf of any authenticated user, with no scheme or host allowlist. While this instance did not yield sensitive data (the only reachable internal target is the app's own login-gated admin route, and the server-side fetch carries no authenticated session), this is a structural vulnerability class that is significantly more dangerous in typical production/cloud deployments — for example, an app hosted on AWS/GCP/Azure with this same flaw could be used to reach the cloud metadata endpoint (`http://169.254.169.254/`), which frequently exposes instance credentials. The absence of any host/scheme validation means the application would carry this same risk if deployed in such an environment or placed behind other internal services.
+
+**Notes**
+The endpoint is also not tied to note ownership or even note existence — it can be invoked as a bare "fetch anything" primitive by any logged-in user, which widens who can trigger it beyond just the person actively composing a note.
+
+---
+
+## Finding 7: Broken Authentication — No Login Rate Limiting
+
+**Severity:** Medium
+
+**Description**
+The `/login` endpoint does not implement any rate limiting, account lockout, delay, or CAPTCHA after repeated failed login attempts. Every failed attempt is handled identically regardless of how many prior failures occurred for the same account.
+
+**Proof of Concept**
+
+```
+for /L %i in (1,1,20) do curl -s -o nul -w "%i: %%{http_code}\n" -X POST http://127.0.0.1:5000/login -d "username=alice" -d "password=wrongpass%i"
+```
+
+20 rapid, consecutive failed login attempts against the `alice` account all returned identical behavior (same error, same response time, no lockout triggered). Immediately following the loop, logging in with alice's correct password succeeded without any obstruction:
+
+```bash
+curl -i -X POST http://127.0.0.1:5000/login -d "username=alice" -d "password=AlicePass123!"
+```
+
+**Impact**
+An attacker can run an unthrottled online brute-force or credential-stuffing attack against any known username with no friction. Combined with weak or reused passwords, this significantly increases the risk of account compromise, and provides no detective control (no lockout, no alerting) that would otherwise flag such an attack in progress.
+
+---
+
 ## Next Steps
 
 - [x] Confirm delete via the same IDOR path (view/edit already confirmed)
 - [x] SQL Injection in search
 - [x] Stored XSS in note content
-- [ ] SSRF testing (link preview feature) — not yet started
-- [ ] Authentication testing (login rate limiting / brute-force resistance) — not yet started
+- [x] SSRF testing (link preview feature)
+- [x] Authentication testing (login rate limiting / brute-force resistance)
 - [ ] White-box review to identify exact root cause (file/line) for each confirmed finding
 - [ ] Remediation + re-test on `main` branch
