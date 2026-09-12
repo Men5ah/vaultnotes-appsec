@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ "Edit Note" if note else "New Note" }}</h1>
+<form method="post">
+    <label>Title</label>
+    <input type="text" name="title" value="{{ note.title if note else '' }}" required>
+    <label>Content</label>
+    <textarea name="content" rows="6">{{ note.content if note else '' }}</textarea>
+    <label>
+        <input type="checkbox" name="is_public" {% if note and note.is_public %}checked{% endif %} style="width:auto;">
+        Make public
+    </label>
+    <br><br>
+    <button type="submit">Save</button>
+</form>
+
+<hr>
+<h3>Link preview (fetches a URL server-side)</h3>
+<input type="text" id="preview-url" placeholder="https://example.com">
+<button type="button" onclick="fetchPreview()">Preview</button>
+<pre id="preview-result"></pre>
+<script>
+function fetchPreview() {
+    const url = document.getElementById('preview-url').value;
+    fetch("{{ url_for('notes.url_preview') }}", {
+        method: "POST",
+        headers: {"Content-Type": "application/x-www-form-urlencoded"},
+        body: "url=" + encodeURIComponent(url)
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('preview-result').textContent = JSON.stringify(data, null, 2);
+    });
+}
+</script>
+
+<p><a href="{{ url_for('notes.list_notes') }}">&larr; Back</a></p>
+{% endblock %}

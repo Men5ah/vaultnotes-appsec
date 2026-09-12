@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Register - VaultNotes</title>
+<style>body{font-family:sans-serif;max-width:400px;margin:80px auto;} input{width:100%;padding:6px;margin-bottom:10px;box-sizing:border-box;} .flash{background:#fff3cd;padding:8px;margin-bottom:10px;}</style>
+</head>
+<body>
+<h1>Create a VaultNotes account</h1>
+{% with messages = get_flashed_messages() %}
+    {% if messages %}{% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}{% endif %}
+{% endwith %}
+<form method="post">
+    <label>Username</label>
+    <input type="text" name="username" required>
+    <label>Email</label>
+    <input type="email" name="email" required>
+    <label>Password</label>
+    <input type="password" name="password" required>
+    <button type="submit">Register</button>
+</form>
+<p>Already have an account? <a href="{{ url_for('auth.login') }}">Log in</a></p>
+</body>
+</html>

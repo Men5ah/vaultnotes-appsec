@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>VaultNotes</h1>
+<p>Logged in as <strong>{{ user.username }}</strong></p>
+
+<form method="get" action="{{ url_for('notes.search') }}">
+    <input type="text" name="q" placeholder="Search notes..." value="{{ search_query or '' }}">
+    <button type="submit">Search</button>
+</form>
+
+<p><a href="{{ url_for('notes.new_note') }}">+ New Note</a></p>
+
+{% if search_query is defined %}
+    <h2>Search results for "{{ search_query }}"</h2>
+    {% for note in public_notes %}
+        <div class="note">
+            <strong><a href="{{ url_for('notes.view_note', note_id=note.id) }}">{{ note.title }}</a></strong>
+            <p>{{ note.content|safe }}</p>
+        </div>
+    {% else %}
+        <p>No results.</p>
+    {% endfor %}
+{% else %}
+    <h2>My Notes</h2>
+    {% for note in my_notes %}
+        <div class="note">
+            <strong><a href="{{ url_for('notes.view_note', note_id=note.id) }}">{{ note.title }}</a></strong>
+            {% if note.is_public %}<em>(public)</em>{% endif %}
+            <p>{{ note.content|safe }}</p>
+        </div>
+    {% else %}
+        <p>You have no notes yet.</p>
+    {% endfor %}
+
+    <h2>Public Notes</h2>
+    {% for note in public_notes %}
+        <div class="note">
+            <strong><a href="{{ url_for('notes.view_note', note_id=note.id) }}">{{ note.title }}</a></strong>
+            <p>{{ note.content|safe }}</p>
+        </div>
+    {% else %}
+        <p>No public notes.</p>
+    {% endfor %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Admin Dashboard</h1>
+
+<h2>Users</h2>
+<table>
+    <tr><th>ID</th><th>Username</th><th>Email</th><th>Admin?</th><th></th></tr>
+    {% for u in users %}
+    <tr>
+        <td>{{ u.id }}</td>
+        <td>{{ u.username }}</td>
+        <td>{{ u.email }}</td>
+        <td>{{ "Yes" if u.is_admin else "No" }}</td>
+        <td>
+            <form method="post" action="{{ url_for('admin.delete_user', user_id=u.id) }}">
+                <button type="submit">Delete</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+
+<h2>All Notes</h2>
+<table>
+    <tr><th>ID</th><th>Owner ID</th><th>Title</th><th>Public?</th><th></th></tr>
+    {% for n in notes %}
+    <tr>
+        <td>{{ n.id }}</td>
+        <td>{{ n.owner_id }}</td>
+        <td>{{ n.title }}</td>
+        <td>{{ "Yes" if n.is_public else "No" }}</td>
+        <td>
+            <form method="post" action="{{ url_for('admin.delete_note', note_id=n.id) }}">
+                <button type="submit">Delete</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}
