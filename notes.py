@@ -1,4 +1,7 @@
 from os import abort
+from urllib.parse import urlparse
+import socket
+import ipaddress
 
 import requests
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash, jsonify
@@ -112,20 +115,39 @@ def search():
     return render_template("notes_list.html", user=current_user(), my_notes=[], public_notes=results, search_query=query)
 
 
+def safe_url(url):
+    """
+    Check if the URL is safe to fetch. This function checks if the URL is using HTTP or HTTPS,
+    and ensures that it does not resolve to a private or loopback IP address.
+    """
+    parsed_url = urlparse(url)
+    if parsed_url.scheme not in ("http", "https"):
+        return False
+
+    try:
+        ip = socket.gethostbyname(parsed_url.hostname)
+        ip_obj = ipaddress.ip_address(ip)
+        if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local:
+            return False
+    except Exception:
+        return False
+
+    return True
+
 @bp.route("/notes/preview", methods=["POST"])
 @login_required
 def url_preview():
     """
     Fetches a user-supplied URL server-side and returns a short preview
     (used when composing a note that links to something). The server
-    performs this fetch with no validation of scheme or destination host,
-    so it will happily reach internal/private network addresses or
-    non-http(s) schemes.
+    will only fetch URLs that are considered safe.
     """
     url = request.form.get("url", "")
     if not url:
         return jsonify({"error": "No URL provided"}), 400
 
+    if not safe_url(url):
+        return jsonify({"error": "Unsafe URL"}), 400
     try:
         resp = requests.get(url, timeout=5)
         snippet = resp.text[:500]
