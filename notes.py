@@ -1,3 +1,5 @@
+from os import abort
+
 import requests
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash, jsonify
 from models import Note, User
@@ -47,25 +49,33 @@ def new_note():
 @bp.route("/notes/<int:note_id>")
 @login_required
 def view_note(note_id):
-    # Fetches the note by ID with no check that it belongs to the current
-    # user (or is public) -- any authenticated user can view any note by
-    # guessing/incrementing the ID.
     note = Note.get_by_id(note_id)
+
     if not note:
         flash("Note not found.")
         return redirect(url_for("notes.list_notes"))
-    return render_template("note_detail.html", note=note)
+
+    if not (note.is_public or note.owner_id == current_user().id):
+        flash("You do not have permission to view this note.")
+        return redirect(url_for("notes.list_notes"))
+
+    return render_template("note_detail.html", note=note, user=current_user())
 
 
 @bp.route("/notes/<int:note_id>/edit", methods=["GET", "POST"])
 @login_required
 def edit_note(note_id):
-    # Same issue as view_note -- no ownership check before allowing edits.
+
     note = Note.get_by_id(note_id)
+
     if not note:
         flash("Note not found.")
         return redirect(url_for("notes.list_notes"))
 
+    if current_user().id != note.owner_id:
+        flash("You do not have permission to edit this note.")
+        return redirect(url_for("notes.list_notes"))
+    
     if request.method == "POST":
         note.title = request.form.get("title", "")
         note.content = request.form.get("content", "")
@@ -79,8 +89,16 @@ def edit_note(note_id):
 @bp.route("/notes/<int:note_id>/delete", methods=["POST"])
 @login_required
 def delete_note(note_id):
-    # Same issue again -- no ownership/authorization check.
+
     note = Note.get_by_id(note_id)
+    if not note:
+        flash("Note not found.")
+        return redirect(url_for("notes.list_notes"))
+
+    if current_user().id != note.owner_id:
+        flash("You do not have permission to delete this note.")
+        return redirect(url_for("notes.list_notes"))
+    
     if note:
         note.delete()
     return redirect(url_for("notes.list_notes"))

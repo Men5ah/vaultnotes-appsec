@@ -4,10 +4,13 @@
 <p>{{ note.content|safe }}</p>
 <p><small>Note ID: {{ note.id }} | Owner ID: {{ note.owner_id }} | {{ "Public" if note.is_public else "Private" }}</small></p>
 <p>
-    <a href="{{ url_for('notes.edit_note', note_id=note.id) }}">Edit</a>
-    <form method="post" action="{{ url_for('notes.delete_note', note_id=note.id) }}" style="display:inline">
+    {% if note.owner_id == user.id %}
+    <a href="{{ url_for('notes.edit_note', note_id=note.id) }}">Edit</a> 
+
+    <form method="post" action="{{ url_for('notes.delete_note', note_id=note.id)}}" style="display:inline">
         <button type="submit">Delete</button>
     </form>
+    {%endif%}
 </p>
 <p><a href="{{ url_for('notes.list_notes') }}">&larr; Back</a></p>
 {% endblock %}
