@@ -1,3 +1,5 @@
+from flask import session
+
 from werkzeug.security import generate_password_hash, check_password_hash
 from db import get_db
 
@@ -94,15 +96,10 @@ class Note:
     def search(query):
         db = get_db()
         # search across title/content, most-recent first
-        sql = (
-            "SELECT * FROM notes WHERE (title LIKE '%"
-            + query
-            + "%' OR content LIKE '%"
-            + query
-            + "%') ORDER BY created_at DESC"
-        )
-        rows = db.execute(sql).fetchall()
-        return [Note(r) for r in rows]
+        sql = "SELECT * FROM notes WHERE (title LIKE ? OR content LIKE ?) ORDER BY created_at DESC"
+        pattern = f"%{query}%"
+        rows = db.execute(sql, (pattern, pattern)).fetchall()
+        return [Note(r) for r in rows if r["is_public"] or r["owner_id"] == session.get("user_id")]
 
     @staticmethod
     def create(owner_id, title, content, is_public=False):
