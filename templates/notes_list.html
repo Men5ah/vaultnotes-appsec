@@ -15,7 +15,7 @@
     {% for note in public_notes %}
         <div class="note">
             <strong><a href="{{ url_for('notes.view_note', note_id=note.id) }}">{{ note.title }}</a></strong>
-            <p>{{ note.content|safe }}</p>
+            <p>{{ note.content}}</p>
         </div>
     {% else %}
         <p>No results.</p>
@@ -26,7 +26,7 @@
         <div class="note">
             <strong><a href="{{ url_for('notes.view_note', note_id=note.id) }}">{{ note.title }}</a></strong>
             {% if note.is_public %}<em>(public)</em>{% endif %}
-            <p>{{ note.content|safe }}</p>
+            <p>{{ note.content}}</p>
         </div>
     {% else %}
         <p>You have no notes yet.</p>
@@ -36,7 +36,7 @@
     {% for note in public_notes %}
         <div class="note">
             <strong><a href="{{ url_for('notes.view_note', note_id=note.id) }}">{{ note.title }}</a></strong>
-            <p>{{ note.content|safe }}</p>
+            <p>{{ note.content}}</p>
         </div>
     {% else %}
         <p>No public notes.</p>

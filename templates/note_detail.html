@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>{{ note.title }}</h1>
-<p>{{ note.content|safe }}</p>
+<p>{{ note.content}}</p>
 <p><small>Note ID: {{ note.id }} | Owner ID: {{ note.owner_id }} | {{ "Public" if note.is_public else "Private" }}</small></p>
 <p>
     {% if note.owner_id == user.id %}
