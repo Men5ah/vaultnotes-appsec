@@ -19,12 +19,11 @@ def register():
             flash("Username already taken.")
             return render_template("register.html")
 
-        # The form only exposes username/email/password to normal users,
-        # but the server trusts *any* field present in the POST body,
-        # including one the client isn't supposed to be able to send.
-        is_admin = request.form.get("is_admin", "0") == "1"
+        # Removed the is_admin field from the registration form, so all new users are created as non-admins by default.
+        
+        # Preventing a privilege escalation vulnerability where a user could register as an admin by manipulating the form data via browser developer tools or a custom HTTP request.
 
-        user = User.create(username, email, password, is_admin=is_admin)
+        user = User.create(username, email, password, is_admin=False)
         session["user_id"] = user.id
         return redirect(url_for("notes.list_notes"))
 
