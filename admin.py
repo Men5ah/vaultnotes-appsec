@@ -9,10 +9,9 @@ bp = Blueprint("admin", __name__)
 def admin_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
-        # Trusts a value stashed in the session at login time rather than
-        # re-checking the user's current is_admin flag from the database
-        # on every request.
-        if not session.get("is_admin"):
+        # Check admin status from the database to ensure the user is still an admin.
+        user = current_user()
+        if not user or not user.is_admin:
             flash("Admin access required.")
             return redirect(url_for("notes.list_notes"))
         return view(*args, **kwargs)
