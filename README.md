@@ -1,18 +1,46 @@
 # VaultNotes
 
-A small Flask + SQLite notes app, **intentionally vulnerable** for security-portfolio purposes.
+A vulnerable web app built to practice working in an application security pipeline, testing for vulnerabilities spanning the OWASP Top 10. This project covers black-box, white-box, static, and dynamic security testing using **Bandit (SAST)** and **OWASP ZAP by Checkmarx (DAST)**.
+
+Seven vulnerabilities were identified, root-caused, and remediated:
+
+| # | Vulnerability | OWASP Category | Severity |
+|---|---|---|---|
+| 1 | Privilege Escalation (Mass Assignment) | Broken Access Control | High |
+| 2 | Insecure Direct Object Reference (IDOR) | Broken Access Control | High |
+| 3 | SQL Injection | Injection | High |
+| 4 | Stored Cross-Site Scripting (XSS) | Injection | High |
+| 5 | Server-Side Request Forgery (SSRF) | SSRF | Medium–High |
+| 6 | Broken Authentication (no rate limiting) | Broken Authentication | Medium |
+| 7 | Stale Session Authorization | Broken Access Control | Low–Medium |
+
+**Full write-up:** [`/report/VaultNotes-Security-Assessment-Report.md`](./report/VaultNotes-Security-Assessment-Report.md) and covers methodology, proof-of-concept for every finding, root cause analysis, remediation code, and independent verification via Bandit and OWASP ZAP.
+
+## Branches
+
+- **`main`** — remediated version. All 7 findings are fixed and re-verified, both against original proof-of-concepts and independently via automated tooling (0 High/Medium ZAP alerts remaining).
+- **`vulnerable`** — frozen, unpatched baseline. Preserved exactly as tested, so every finding in the report can be reproduced.
+
+## Highlights
+
+- **Full-cycle methodology:** black-box exploitation → white-box root cause → remediation → re-verification → independent tool confirmation.
+- **Tooling comparison:** Bandit and ZAP independently confirmed the injection-class findings (SQLi, XSS) but caught **none** of the access-control/business-logic findings (mass assignment, IDOR, SSRF, broken auth, stale sessions) — a concrete illustration of why automated scanning alone isn't sufficient application security coverage.
+- **Before/after DAST results:** ZAP found 3 High / 5 Medium alerts on `vulnerable`; 0 High / 0 Medium remained on `main` after remediation.
+
 
 ⚠️ **Run locally only. Do not deploy this publicly** — it contains a working SSRF endpoint and other real vulnerabilities.
 
 ## Setup
 
-```bash
+```
 python3 -m venv venv
 source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 python db.py                       # creates vaultnotes.db + seed users
 python app.py                      # runs on http://localhost:5000
 ```
+
+⚠️ Run locally only — the `vulnerable` branch contains working SSRF and injection vulnerabilities by design.
 
 **Seed accounts** (created by `db.py`, printed to console on init):
 
